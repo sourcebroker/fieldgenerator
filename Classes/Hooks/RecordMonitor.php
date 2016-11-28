@@ -30,8 +30,8 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * A class that monitors changes to records so that the changed record gets
- * its search workds written to field delared in TCA ['keywords']
+ * A class that monitors changes to records.
+ * When record is create or updated the fields described in TCA section 'fieldsGenerator' are generated.
  *
  * @package    TYPO3
  */

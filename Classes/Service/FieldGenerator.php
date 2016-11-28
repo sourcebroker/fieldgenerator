@@ -33,8 +33,7 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
- * A class that monitors changes to records so that the changed record gets
- * its search workds written to field delared in TCA ['keywords']
+ * A class that generates content of fields described in TCA section 'fieldsGenerator'.
  *
  * @package    TYPO3
  */
