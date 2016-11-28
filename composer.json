@@ -1,7 +1,7 @@
 {
 	"name": "sourcebroker/fieldgenerator",
 	"type": "typo3-cms-extension",
-	"description": "Allows to create content of one field based on other fields. Controlled fully by TCA. Support for extbase nested property.",
+	"description": "Allows to create content of one field based on other fields. Controlled fully by TCA. Support for extbase nested properties.",
 	"license": ["GPL-2.0+"],
 	"require": {
 		"typo3/cms-core": ">=6.2.0,<7.6.99"
