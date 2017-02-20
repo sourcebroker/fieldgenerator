@@ -99,17 +99,26 @@ class FieldGenerator
             foreach ($this->tca['fieldsGenerator']['generate'] as $field) {
                 $keywords = [];
                 $record = $repository->findByUid($recordId);
-                $nestedFieldDepth = 0;
-                foreach (explode(',', $field['fields']) as $fieldToAdd) {
-                    $nestedFieldArray = explode('.', $fieldToAdd);
-                    $this->traverseNestedObject($record, $nestedFieldArray, $nestedFieldDepth, $keywords);
-                }
-                if (count($keywords)) {
-                    /** @var PersistenceManager $ersistenceManager */
-                    $persistenceManager = GeneralUtility::makeInstance(PersistenceManager::class);
-                    $record->setKeywords(implode(' ', $keywords));
-                    $repository->update($record);
-                    $persistenceManager->persistAll();
+                if ($record !== null) {
+                    $nestedFieldDepth = 0;
+                    foreach (explode(',', $field['fields']) as $fieldToAdd) {
+                        $nestedFieldArray = explode('.', $fieldToAdd);
+                        $this->traverseNestedObject($record, $nestedFieldArray, $nestedFieldDepth, $keywords);
+                    }
+                    if (count($keywords)) {
+                        /** @var PersistenceManager $ersistenceManager */
+                        $persistenceManager = GeneralUtility::makeInstance(PersistenceManager::class);
+                        $stringKeywords = implode(' ', $keywords);
+                        if (
+                            isset($field['preg_replace']) && is_array($field['preg_replace'])
+                            && isset($field['preg_replace']['pattern']) && isset($field['preg_replace']['replacement'])
+                        ) {
+                            $stringKeywords = preg_replace($field['preg_replace']['pattern'], $field['preg_replace']['replacement'], $stringKeywords);
+                        }
+                        $record->setKeywords($stringKeywords);
+                        $repository->update($record);
+                        $persistenceManager->persistAll();
+                    }
                 }
             }
         }
