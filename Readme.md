@@ -18,6 +18,10 @@ Install the extension using composer ``composer require sourcebroker/fieldgenera
                 'generate' => [
                     'keywords' => [
                         'fields' => 'name,sections.steps.description,sections.ingredients.name',
+                        'preg_replace' => [
+                            'pattern' => '/[:]/',
+                            'replacement' => ''
+                        ]
                     ]
                 ]
             ],
