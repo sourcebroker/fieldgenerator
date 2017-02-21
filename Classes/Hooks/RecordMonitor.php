@@ -54,7 +54,13 @@ class RecordMonitor
         }
         /** @var FieldGenerator $fieldGenerator */
         $fieldGenerator = GeneralUtility::makeInstance(FieldGenerator::class, $table);
-        $fieldGenerator->generateFields($recordId);
+        $record = BackendUtility::getRecord($table, $recordId);
+
+        if ($record['sys_language_uid'] > 0) {
+            $fieldGenerator->generateFields($record['l10n_parent'], $record['sys_language_uid']);
+        } else {
+            $fieldGenerator->generateFields($record['uid'], $record['sys_language_uid']);
+        }
     }
 }
 
