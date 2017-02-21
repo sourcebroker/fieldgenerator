@@ -31,6 +31,7 @@ use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 use TYPO3\CMS\Extbase\Persistence\Generic\Typo3QuerySettings;
 use TYPO3\CMS\Extbase\Persistence\Repository;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
+use TYPO3\CMS\Extbase\Persistence\Generic\Session;
 
 /**
  * A class that generates content of fields described in TCA section 'fieldsGenerator'.
@@ -39,7 +40,6 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  */
 class FieldGenerator
 {
-
     /**
      * @var array
      */
@@ -76,22 +76,24 @@ class FieldGenerator
             $defaultQuerySettings->setRespectStoragePage(FALSE);
             $defaultQuerySettings->setIgnoreEnableFields(TRUE);
             $defaultQuerySettings->setIncludeDeleted(TRUE);
-            $defaultQuerySettings->setRespectSysLanguage(FALSE);
+            $defaultQuerySettings->setRespectSysLanguage(TRUE);
             $repository->setDefaultQuerySettings($defaultQuerySettings);
             $records = $repository->findAll();
-            foreach ($records as $record) {
-                $this->generateFields($record->getUid());
+            foreach ($this->getLanguages() as $language) {
+                foreach ($records as $record) {
+                    $this->generateFields($record->getUid(), $language);
+                }
             }
         }
     }
 
     /**
      * @param $recordId
+     * @param $languageUid
      */
-    public function generateFields($recordId)
+    public function generateFields($recordId, $languageUid = null)
     {
         if ($this->hasTableTcaTheGeneratorSettings($this->table)) {
-
             $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
             /** @var Repository $repository */
             $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
@@ -99,11 +101,12 @@ class FieldGenerator
             foreach ($this->tca['fieldsGenerator']['generate'] as $field) {
                 $keywords = [];
                 $record = $repository->findByUid($recordId);
-                if ($record !== null) {
+                $localizedRecord = $this->findRecordByUid($record, $languageUid);
+                if ($localizedRecord !== null) {
                     $nestedFieldDepth = 0;
                     foreach (explode(',', $field['fields']) as $fieldToAdd) {
                         $nestedFieldArray = explode('.', $fieldToAdd);
-                        $this->traverseNestedObject($record, $nestedFieldArray, $nestedFieldDepth, $keywords);
+                        $this->traverseNestedObject($localizedRecord, $nestedFieldArray, $nestedFieldDepth, $keywords);
                     }
                     if (count($keywords)) {
                         /** @var PersistenceManager $ersistenceManager */
@@ -115,8 +118,8 @@ class FieldGenerator
                         ) {
                             $stringKeywords = preg_replace($field['preg_replace']['pattern'], $field['preg_replace']['replacement'], $stringKeywords);
                         }
-                        $record->setKeywords($stringKeywords);
-                        $repository->update($record);
+                        $localizedRecord->setKeywords($stringKeywords);
+                        $repository->update($localizedRecord);
                         $persistenceManager->persistAll();
                     }
                 }
@@ -167,5 +170,61 @@ class FieldGenerator
         return $result;
     }
 
+    /**
+     * @param $record
+     * @param $languageUid
+     * @return mixed
+     */
+    public function findRecordByUid($record, $languageUid)
+    {
+        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
+        $persistenceSession = GeneralUtility::makeInstance(Session::class);
+        $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
+
+        if ($record != null && $repository) {
+            $defaultQuerySettings = $objectManager->get(Typo3QuerySettings::class);
+            $defaultQuerySettings->setLanguageUid($languageUid);
+            $defaultQuerySettings->setRespectSysLanguage(TRUE);
+            $defaultQuerySettings->setRespectStoragePage(FALSE);
+            $defaultQuerySettings->setLanguageMode('strict');
+            $repository->setDefaultQuerySettings($defaultQuerySettings);
+
+            $query = $repository->createQuery();
+
+            $query->matching(
+                $query->equals('uid', $record->getUid())
+            );
+
+            $persistenceSession->unregisterObject($record);
+
+            $result = $query->execute();
+
+            return $result->getFirst();
+        }
+    }
+
+    /**
+     * @return array
+     */
+    private function getLanguages()
+    {
+        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
+        $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
+        $languages = [];
+
+        if ($repository) {
+            $query = $repository->createQuery();
+            $query->statement('SELECT DISTINCT(sys_language_uid) FROM ' . $this->table);
+            $result = $query->execute(true);
+
+            if ($result) {
+                foreach ($result as $record) {
+                    $languages[] = $record['sys_language_uid'];
+                }
+            }
+        }
+
+        return $languages;
+    }
 }
 
