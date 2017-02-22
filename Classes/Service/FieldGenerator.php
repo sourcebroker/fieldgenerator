@@ -95,9 +95,7 @@ class FieldGenerator
     public function generateFields($recordId, $languageUid)
     {
         if ($this->hasTableTcaTheGeneratorSettings($this->table)) {
-            $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
-            /** @var Repository $repository */
-            $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
+            $repository = $this->getRepository();
 
             foreach ($this->tca['fieldsGenerator']['generate'] as $field) {
                 $keywords = [];
@@ -207,8 +205,7 @@ class FieldGenerator
      */
     private function getLanguages()
     {
-        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
-        $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
+        $repository = $this->getRepository();
         $languages = [];
 
         if ($repository) {
