@@ -25,13 +25,14 @@
 
 namespace SourceBroker\Fieldgenerator\Service;
 
+use Helhum\Typo3Console\Service\Database\Exception;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Object\ObjectManager;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 use TYPO3\CMS\Extbase\Persistence\Generic\Typo3QuerySettings;
-use TYPO3\CMS\Extbase\Persistence\Repository;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 use TYPO3\CMS\Extbase\Persistence\Generic\Session;
+
 
 /**
  * A class that generates content of fields described in TCA section 'fieldsGenerator'.
