@@ -48,6 +48,10 @@ class FieldGenerator
      * @var
      */
     private $table;
+    /**
+     * Typo3QuerySettings $defaultQuerySettings
+     */
+    private $defaultQuerySettings = null;
 
     /**
      * FieldGenerator constructor.
@@ -55,10 +59,13 @@ class FieldGenerator
      */
     public function __construct($table)
     {
+        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
+
         if (isset($GLOBALS['TCA'][$table])) {
             $this->tca = $GLOBALS['TCA'][$table]['ctrl'];
         }
         $this->table = $table;
+        $this->defaultQuerySettings = $objectManager->get(Typo3QuerySettings::class);
     }
 
     /**
@@ -67,18 +74,12 @@ class FieldGenerator
     public function generateFieldsForTable()
     {
         if ($this->hasTableTcaTheGeneratorSettings($this->table)) {
-            $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
-            /** @var Repository $repository */
-            $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
-
-            /** @var Typo3QuerySettings $defaultQuerySettings */
-            $defaultQuerySettings = $objectManager->get(Typo3QuerySettings::class);
-            $defaultQuerySettings->setRespectStoragePage(FALSE);
-            $defaultQuerySettings->setIgnoreEnableFields(TRUE);
-            $defaultQuerySettings->setIncludeDeleted(TRUE);
-            $defaultQuerySettings->setRespectSysLanguage(TRUE);
-            $repository->setDefaultQuerySettings($defaultQuerySettings);
+            $repository = $this->getRepository();
+            $this->defaultQuerySettings->setIgnoreEnableFields(true);
+            $this->defaultQuerySettings->setIncludeDeleted(true);
+            $repository->setDefaultQuerySettings($this->defaultQuerySettings);
             $records = $repository->findAll();
+
             foreach ($this->getLanguages() as $language) {
                 foreach ($records as $record) {
                     $this->generateFields($record->getUid(), $language);
@@ -91,7 +92,7 @@ class FieldGenerator
      * @param $recordId
      * @param $languageUid
      */
-    public function generateFields($recordId, $languageUid = null)
+    public function generateFields($recordId, $languageUid)
     {
         if ($this->hasTableTcaTheGeneratorSettings($this->table)) {
             $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
@@ -102,21 +103,26 @@ class FieldGenerator
                 $keywords = [];
                 $record = $repository->findByUid($recordId);
                 $localizedRecord = $this->findRecordByUid($record, $languageUid);
+
                 if ($localizedRecord !== null) {
                     $nestedFieldDepth = 0;
+
                     foreach (explode(',', $field['fields']) as $fieldToAdd) {
                         $nestedFieldArray = explode('.', $fieldToAdd);
                         $this->traverseNestedObject($localizedRecord, $nestedFieldArray, $nestedFieldDepth, $keywords);
                     }
+
                     if (count($keywords)) {
                         /** @var PersistenceManager $ersistenceManager */
                         $persistenceManager = GeneralUtility::makeInstance(PersistenceManager::class);
                         $stringKeywords = implode(' ', $keywords);
+
                         if (
                             isset($field['preg_replace']) && is_array($field['preg_replace'])
                             && isset($field['preg_replace']['pattern']) && isset($field['preg_replace']['replacement'])
                         ) {
-                            $stringKeywords = preg_replace($field['preg_replace']['pattern'], $field['preg_replace']['replacement'], $stringKeywords);
+                            $stringKeywords = preg_replace($field['preg_replace']['pattern'],
+                                $field['preg_replace']['replacement'], $stringKeywords);
                         }
                         $localizedRecord->setKeywords($stringKeywords);
                         $repository->update($localizedRecord);
@@ -140,6 +146,7 @@ class FieldGenerator
             $objectStorageClass = ObjectStorage::class;
             $fieldGetter = 'get' . ucfirst($nestedField);
             $propertyValue = $currentObject->{$fieldGetter}();
+
             if (!$propertyValue instanceof $objectStorageClass) {
                 $keywords[] = $propertyValue;
             } else {
@@ -160,6 +167,7 @@ class FieldGenerator
     protected function hasTableTcaTheGeneratorSettings($table)
     {
         $result = false;
+
         if (isset($GLOBALS['TCA'][$table])) {
             if (isset($this->tca['fieldsGenerator'])) {
                 if (isset($this->tca['fieldsGenerator']['generate'])) {
@@ -167,6 +175,7 @@ class FieldGenerator
                 }
             }
         }
+
         return $result;
     }
 
@@ -177,29 +186,19 @@ class FieldGenerator
      */
     public function findRecordByUid($record, $languageUid)
     {
-        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
         $persistenceSession = GeneralUtility::makeInstance(Session::class);
-        $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
+        $repository = $this->getRepository();
 
         if ($record != null && $repository) {
-            $defaultQuerySettings = $objectManager->get(Typo3QuerySettings::class);
-            $defaultQuerySettings->setLanguageUid($languageUid);
-            $defaultQuerySettings->setRespectSysLanguage(TRUE);
-            $defaultQuerySettings->setRespectStoragePage(FALSE);
-            $defaultQuerySettings->setLanguageMode('strict');
-            $repository->setDefaultQuerySettings($defaultQuerySettings);
-
             $query = $repository->createQuery();
-
+            $query->getQuerySettings()->setLanguageUid($languageUid);
+            $query->getQuerySettings()->setLanguageMode('strict');
             $query->matching(
                 $query->equals('uid', $record->getUid())
             );
-
             $persistenceSession->unregisterObject($record);
 
-            $result = $query->execute();
-
-            return $result->getFirst();
+            return $query->execute()->getFirst();
         }
     }
 
@@ -226,5 +225,24 @@ class FieldGenerator
 
         return $languages;
     }
-}
 
+    /**
+     * @return object
+     * @throws Exception
+     */
+    private function getRepository()
+    {
+        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
+        $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
+
+        if ($repository) {
+            $this->defaultQuerySettings->setRespectSysLanguage(true);
+            $this->defaultQuerySettings->setRespectStoragePage(false);
+            $repository->setDefaultQuerySettings($this->defaultQuerySettings);
+
+            return $repository;
+        } else {
+            throw new Exception('Can\'t load repository ' . $this->tca['fieldsGenerator']['repositoryClass']);
+        }
+    }
+}
