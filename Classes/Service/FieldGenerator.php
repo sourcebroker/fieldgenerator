@@ -25,7 +25,7 @@
 
 namespace SourceBroker\Fieldgenerator\Service;
 
-use Helhum\Typo3Console\Service\Database\Exception;
+use TYPO3\CMS\Core\Exception;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Object\ObjectManager;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
