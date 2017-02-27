@@ -50,7 +50,7 @@ class FieldGenerator
      */
     private $table;
     /**
-     * Typo3QuerySettings $defaultQuerySettings
+     * @var \TYPO3\CMS\Extbase\Persistence\Generic\Typo3QuerySettings
      */
     private $defaultQuerySettings = null;
 
@@ -83,6 +83,7 @@ class FieldGenerator
 
             foreach ($this->getLanguages() as $language) {
                 foreach ($records as $record) {
+                    /** @var $record \TYPO3\CMS\Extbase\DomainObject\AbstractDomainObject */
                     $this->generateFields($record->getUid(), $language);
                 }
             }
@@ -144,10 +145,16 @@ class FieldGenerator
             $nestedField = $nestedFieldArray[$nestedFieldDepth];
             $objectStorageClass = ObjectStorage::class;
             $fieldGetter = 'get' . ucfirst($nestedField);
-            $propertyValue = $currentObject->{$fieldGetter}();
-
+            $propertyValue = null;
+            if (method_exists($currentObject, $fieldGetter)) {
+                $propertyValue = $currentObject->{$fieldGetter}();
+            }
             if (!$propertyValue instanceof $objectStorageClass) {
-                $keywords[] = $propertyValue;
+                if (count($nestedFieldArray) > $nestedFieldDepth + 1 ) {
+                    $this->traverseNestedObject($propertyValue, $nestedFieldArray, $nestedFieldDepth + 1, $keywords);
+                } else {
+                    $keywords[] = $propertyValue;
+                }
             } else {
                 $nestedFieldDepth++;
                 foreach ($propertyValue as $object) {
@@ -179,7 +186,7 @@ class FieldGenerator
     }
 
     /**
-     * @param $record
+     * @param $record \TYPO3\CMS\Extbase\DomainObject\AbstractDomainObject
      * @param $languageUid
      * @return mixed
      */
@@ -189,6 +196,7 @@ class FieldGenerator
         $repository = $this->getRepository();
 
         if ($record != null && $repository) {
+            /** @var $query \TYPO3\CMS\Extbase\Persistence\Generic\Query */
             $query = $repository->createQuery();
             $query->getQuerySettings()->setLanguageUid($languageUid);
             $query->getQuerySettings()->setLanguageMode('strict');
@@ -199,6 +207,8 @@ class FieldGenerator
 
             return $query->execute()->getFirst();
         }
+
+        return null;
     }
 
     /**
@@ -210,6 +220,7 @@ class FieldGenerator
         $languages = [];
 
         if ($repository) {
+            /** @var $query \TYPO3\CMS\Extbase\Persistence\Generic\Query */
             $query = $repository->createQuery();
             $query->statement('SELECT DISTINCT(sys_language_uid) FROM ' . $this->table);
             $result = $query->execute(true);
@@ -231,6 +242,7 @@ class FieldGenerator
     private function getRepository()
     {
         $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
+        /** @var $repository \TYPO3\CMS\Extbase\Persistence\Repository */
         $repository = $objectManager->get($this->tca['fieldsGenerator']['repositoryClass']);
 
         if ($repository) {
