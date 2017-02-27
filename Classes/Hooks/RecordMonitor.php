@@ -26,6 +26,7 @@
 namespace SourceBroker\Fieldgenerator\Hooks;
 
 use SourceBroker\Fieldgenerator\Service\FieldGenerator;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
