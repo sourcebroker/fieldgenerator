@@ -99,7 +99,7 @@ class FieldGenerator
         if ($this->hasTableTcaTheGeneratorSettings($this->table)) {
             $repository = $this->getRepository();
 
-            foreach ($this->tca['fieldsGenerator']['generate'] as $field) {
+            foreach ($this->tca['fieldsGenerator']['generate'] as $keyField => $field) {
                 $keywords = [];
                 $record = $repository->findByUid($recordId);
                 $localizedRecord = $this->findRecordByUid($record, $languageUid);
@@ -124,8 +124,7 @@ class FieldGenerator
                             $stringKeywords = preg_replace($field['preg_replace']['pattern'],
                                 $field['preg_replace']['replacement'], $stringKeywords);
                         }
-                        $localizedRecord->setKeywords($stringKeywords);
-                        $repository->update($localizedRecord);
+                        $repository->update($this->setKeywords($localizedRecord, $keyField, $stringKeywords));
                         $persistenceManager->persistAll();
                     }
                 }
@@ -153,7 +152,11 @@ class FieldGenerator
                 if (count($nestedFieldArray) > $nestedFieldDepth + 1 ) {
                     $this->traverseNestedObject($propertyValue, $nestedFieldArray, $nestedFieldDepth + 1, $keywords);
                 } else {
-                    $keywords[] = $propertyValue;
+                    if (is_array($propertyValue)) {
+                        $keywords[] = implode(' ', $propertyValue);
+                    } else {
+                        $keywords[] = $propertyValue;
+                    }
                 }
             } else {
                 $nestedFieldDepth++;
@@ -254,5 +257,27 @@ class FieldGenerator
         } else {
             throw new Exception('Can\'t load repository ' . $this->tca['fieldsGenerator']['repositoryClass']);
         }
+    }
+
+    /**
+     * @param $record object
+     * @param $keyField string
+     * @param $keywords string
+     * @return object
+     */
+    private function setKeywords($record, $keyField, $keywords)
+    {
+        $methodName = 'set';
+        $keyFields = explode('_', $keyField);
+
+        foreach ($keyFields as $part) {
+            $methodName .= ucfirst($part);
+        }
+
+        if (method_exists($record, $methodName)) {
+            $record->{$methodName}($keywords);
+        }
+
+        return $record;
     }
 }
